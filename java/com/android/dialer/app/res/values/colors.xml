@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <color name="call_record_playback_icon_color">#8a000000</color>
+
+  
+  <color name="remove_highlighted_text_color">#FF3F3B</color>
+  <color name="letter_hint">#FFF8F8F8</color>
+  <color name="nav_item">@android:color/system_neutral1_600</color>
+  <color name="dialer_pill_color">#FF212121</color>
+      <color name="dialer_pill_color_blur">#4D212121</color>
+  <color name="dialer_fab_icon_color">#FF212121</color>
+  <color name="dialpad_circle_color">#F8F8F8</color>
+  <color name="dialpad_color">#EDEDED</color>
+
+  
+  <color name="state_on_color">@android:color/system_accent3_100</color>
+
+  
+  <color name="thumb_disabled_color">@android:color/black</color>
+
+  
+  <color name="thumb_off_color">@color/dialer_background_color</color>
+
+  
+  <color name="track_on_color">#FF0E7AFE</color>
+
+  
+  <color name="track_off_color">#FF8E8E93</color>
+
+    <!-- Aurora Caller ID accents -->
+</resources>
