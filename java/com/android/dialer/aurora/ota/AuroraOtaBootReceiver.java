@@ -46,6 +46,9 @@ public class AuroraOtaBootReceiver extends BroadcastReceiver {
     try {
       AuroraOtaJobService.schedule(context);
       AuroraOtaJobService.ensureChannel(context);
+      // Right after a reboot or an app update is exactly when a pending update matters, so look for
+      // one now instead of waiting for the next periodic run.
+      AuroraOtaJobService.checkInBackground(context, /* userInitiated = */ false);
 
       // After an app update, remove the APK we just installed from.
       AuroraOtaUpdater.cleanupDownloads(context, AuroraOtaUpdater.currentVersionCode(context));

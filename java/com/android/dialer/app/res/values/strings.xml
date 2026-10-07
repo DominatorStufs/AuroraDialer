@@ -461,6 +461,9 @@
   <string name="aurora_ota_waiting_wifi">Update available \u2014 waiting for Wi-Fi</string>
   <string name="aurora_ota_downloading">Downloading update\u2026</string>
   <string name="aurora_ota_downloading_percent">Downloading\u2026 %1$d%%</string>
+  <string name="aurora_ota_notifications_blocked_title">Update notifications are switched off</string>
+  <string name="aurora_ota_notifications_blocked_summary">Android is not allowed to show notifications from Aurora Dialer, so a new update cannot be announced. Tap to allow them.</string>
+  <string name="aurora_ota_settings_unavailable">This settings screen is not available on this device.</string>
   <string name="aurora_ota_channel_name">App updates</string>
   <string name="aurora_ota_channel_description">Aurora Dialer software updates</string>
   <string name="aurora_ota_file_missing">The downloaded update file is no longer available</string>

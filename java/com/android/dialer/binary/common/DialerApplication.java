@@ -23,6 +23,7 @@ import androidx.annotation.NonNull;
 
 import com.android.dialer.inject.HasRootComponent;
 import com.android.dialer.aurora.AuroraCallDiagnostics;
+import com.android.dialer.aurora.ota.AuroraOtaJobService;
 import com.android.dialer.notification.NotificationChannelManager;
 
 /** A common application subclass for all Dialer build variants. */
@@ -37,6 +38,14 @@ public abstract class DialerApplication extends Application implements HasRootCo
     // Records the start of the process and catches a crash before it is lost - both are needed to
     // explain a call screen that went away on its own. See AuroraCallDiagnostics.
     AuroraCallDiagnostics.install(this);
+
+    // Keeps the update check alive and runs one when the last check is old: without this an app that
+    // was just installed never looks for an update until a reboot or a visit to the update settings.
+    try {
+      AuroraOtaJobService.scheduleAndCheck(this);
+    } catch (RuntimeException e) {
+      android.util.Log.w("AuroraDialer", "cannot start the update check", e);
+    }
     try {
       NotificationChannelManager.initChannels(this);
     } catch (RuntimeException e) {

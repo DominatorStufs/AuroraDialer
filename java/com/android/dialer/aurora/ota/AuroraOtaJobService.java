@@ -35,6 +35,7 @@ import android.text.TextUtils;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 
 import com.android.dialer.aurora.ota.AuroraOtaPrefs;
 import com.aurora.dialer.R;
@@ -97,15 +98,70 @@ public final class AuroraOtaJobService extends JobService {
     }
   }
 
+  /**
+   * How long after the last check a fresh one is worth doing when the app is opened. The periodic
+   * job is twelve-hourly and Android runs it whenever it likes, so on its own it can leave a phone
+   * without an update notification for half a day.
+   */
+  private static final long LAUNCH_CHECK_INTERVAL_MS = 6 * 3600_000L;
+
+  /**
+   * Schedules the periodic job and, when the last check is older than
+   * {@link #LAUNCH_CHECK_INTERVAL_MS}, runs one straight away.
+   *
+   * <p>This is what makes an update appear on its own. The periodic job alone cannot do it: a phone
+   * that has just installed this app has no job scheduled at all until the first boot, the first
+   * update of the app, or the user opening the update settings.
+   */
+  public static void scheduleAndCheck(Context context) {
+    if (context == null) {
+      return;
+    }
+    schedule(context);
+    if (!AuroraOtaPrefs.isEnabled(context)) {
+      return;
+    }
+    long last = AuroraOtaPrefs.getLastCheckAt(context);
+    if (last != 0 && System.currentTimeMillis() - last < LAUNCH_CHECK_INTERVAL_MS) {
+      return;
+    }
+    checkInBackground(context, /* userInitiated = */ false);
+  }
+
   /** Runs an immediate one-off check (used by "Check now"). */
   public static void checkNow(Context context) {
-    AuroraOtaDownloadService.startCheckAndMaybeDownload(context, /* userInitiated = */ true);
+    if (!AuroraOtaDownloadService.startCheckAndMaybeDownload(context, /* userInitiated = */ true)) {
+      // A phone that refuses the foreground service still gets the check, just without the
+      // foreground part.
+      checkInBackground(context, /* userInitiated = */ true);
+    }
+  }
+
+  /**
+   * Runs the whole update pass on a thread of its own with no foreground service involved, so it
+   * works from a background job, from the start of the app and from a broadcast.
+   */
+  public static void checkInBackground(Context context, boolean userInitiated) {
+    if (context == null) {
+      return;
+    }
+    final Context appContext = context.getApplicationContext();
+    ensureChannel(appContext);
+    try {
+      Thread thread = new Thread(() -> runUpdatePass(appContext, userInitiated), "AuroraOtaPass");
+      thread.start();
+    } catch (RuntimeException e) {
+      LogUtil.e(TAG, "cannot start the update pass: " + e);
+    }
   }
 
   @Override
   public boolean onStartJob(JobParameters params) {
     LogUtil.i(TAG, "onStartJob");
-    AuroraOtaDownloadService.startCheckAndMaybeDownload(this, /* userInitiated = */ false);
+    // The job runs the check itself instead of starting a foreground service: Android 12+ refuses
+    // that start from a background job, and the refusal used to end the pass silently - no update
+    // found, no notification, nothing written anywhere.
+    checkInBackground(this, /* userInitiated = */ false);
     jobFinished(params, false);
     return false;
   }
@@ -116,19 +172,122 @@ public final class AuroraOtaJobService extends JobService {
   }
 
   // ---------------------------------------------------------------------------------------------
+  // The update pass: check, then download, then notify. Runs on any background thread.
+  // ---------------------------------------------------------------------------------------------
+
+  static void runUpdatePass(Context context, boolean userInitiated) {
+    try {
+      AuroraOtaUpdater.UpdateInfo info = AuroraOtaUpdater.checkForUpdate(context);
+      if (!info.available) {
+        if (userInitiated) {
+          notifySimple(
+              context,
+              NOTIFICATION_ID_ERROR,
+              context.getString(R.string.aurora_ota_up_to_date),
+              TextUtils.isEmpty(info.status) ? "" : info.status);
+        }
+        AuroraOtaEvents.notifyStatus(context, info.status);
+        return;
+      }
+      // Respect the user's "not now" choice unless the update is mandatory.
+      if (!userInitiated
+          && !info.mandatory
+          && info.versionCode == AuroraOtaPrefs.getPostponedVersionCode(context)) {
+        LogUtil.i(TAG, "update postponed by user, skipping");
+        return;
+      }
+      if (AuroraOtaPrefs.isWifiOnly(context) && !isOnUnmeteredNetwork(context)) {
+        notifySimple(
+            context,
+            NOTIFICATION_ID_ERROR,
+            context.getString(R.string.aurora_ota_waiting_wifi),
+            info.versionName);
+        return;
+      }
+      downloadAndNotify(context, info);
+    } catch (RuntimeException e) {
+      LogUtil.e(TAG, "update run failed: " + e);
+      notifySimple(
+          context,
+          NOTIFICATION_ID_ERROR,
+          context.getString(R.string.aurora_ota_failed),
+          String.valueOf(e.getMessage()));
+    }
+  }
+
+  private static void downloadAndNotify(
+      final Context context, final AuroraOtaUpdater.UpdateInfo info) {
+    AuroraOtaPrefs.setLastStatus(context, "Downloading " + info.versionName);
+    AuroraOtaEvents.notifyStatus(context, "Downloading " + info.versionName);
+    AuroraOtaUpdater.download(
+        context,
+        info,
+        new AuroraOtaUpdater.ProgressCallback() {
+          @Override
+          public void onProgress(int percent, long bytesDownloaded, long totalBytes) {
+            String text =
+                percent >= 0
+                    ? context.getString(R.string.aurora_ota_downloading_percent, percent)
+                    : context.getString(R.string.aurora_ota_downloading);
+            NotificationManager nm =
+                (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (nm != null && notificationsEnabled(context)) {
+              nm.notify(
+                  NOTIFICATION_ID_PROGRESS,
+                  buildNotification(
+                      context, info.versionName, text, Math.max(0, percent), false, null));
+            }
+            AuroraOtaEvents.notifyProgress(context, percent, info.versionName);
+          }
+
+          @Override
+          public void onComplete(File apkFile) {
+            AuroraOtaPrefs.setLastStatus(context, "Downloaded " + info.versionName);
+            AuroraOtaEvents.notifyStatus(context, "Downloaded " + info.versionName);
+            notifyUpdateReady(context, info, apkFile);
+            if (AuroraOtaPrefs.isAutoInstall(context)) {
+              String error = AuroraOtaUpdater.install(context, apkFile);
+              if (error != null) {
+                notifySimple(
+                    context,
+                    NOTIFICATION_ID_ERROR,
+                    context.getString(R.string.aurora_ota_failed),
+                    error);
+              }
+            }
+          }
+
+          @Override
+          public void onError(String message) {
+            AuroraOtaPrefs.setLastStatus(context, message);
+            AuroraOtaEvents.notifyStatus(context, message);
+            notifySimple(
+                context,
+                NOTIFICATION_ID_ERROR,
+                context.getString(R.string.aurora_ota_failed),
+                message);
+          }
+        });
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // Download service
   // ---------------------------------------------------------------------------------------------
 
-  /** Foreground service: checks the manifest and, when an update exists, downloads it. */
+  /**
+   * Foreground service used for a check the user asked for: it can show progress while the app is in
+   * front. The update pass itself lives in {@link #runUpdatePass}, so nothing depends on this
+   * service starting.
+   */
   public static final class AuroraOtaDownloadService extends Service {
 
     private static final String TAG = "AuroraOtaDownload";
     private static final String EXTRA_USER_INITIATED = "user_initiated";
 
-    private volatile boolean cancelled;
     private Thread worker;
 
-    public static void startCheckAndMaybeDownload(Context context, boolean userInitiated) {
+    /** Tries to run the pass in front; returns false when the phone refuses that. */
+    public static boolean startCheckAndMaybeDownload(Context context, boolean userInitiated) {
       Intent intent = new Intent(context, AuroraOtaDownloadService.class);
       intent.putExtra(EXTRA_USER_INITIATED, userInitiated);
       try {
@@ -137,8 +296,10 @@ public final class AuroraOtaJobService extends JobService {
         } else {
           context.startService(intent);
         }
+        return true;
       } catch (RuntimeException e) {
         LogUtil.e(TAG, "cannot start download service: " + e);
+        return false;
       }
     }
 
@@ -153,56 +314,26 @@ public final class AuroraOtaJobService extends JobService {
       final boolean userInitiated =
           intent != null && intent.getBooleanExtra(EXTRA_USER_INITIATED, false);
 
-      startForeground(
-          NOTIFICATION_ID_PROGRESS,
-          buildNotification(
-              this,
-              getString(R.string.aurora_ota_checking),
-              getString(R.string.aurora_ota_checking_detail),
-              0,
-              true,
-              null));
+      try {
+        startForeground(
+            NOTIFICATION_ID_PROGRESS,
+            buildNotification(
+                this,
+                getString(R.string.aurora_ota_checking),
+                getString(R.string.aurora_ota_checking_detail),
+                0,
+                true,
+                null));
+      } catch (RuntimeException e) {
+        // The check still runs; only the progress notification is missing.
+        LogUtil.w(TAG, "cannot put the update service in front: " + e);
+      }
 
       worker =
           new Thread(
               () -> {
                 try {
-                  AuroraOtaUpdater.UpdateInfo info = AuroraOtaUpdater.checkForUpdate(this);
-                  if (cancelled) {
-                    return;
-                  }
-                  if (!info.available) {
-                    if (userInitiated) {
-                      notifySimple(this, NOTIFICATION_ID_ERROR,
-                          getString(R.string.aurora_ota_up_to_date),
-                          TextUtils.isEmpty(info.status) ? "" : info.status);
-                      AuroraOtaEvents.notifyStatus(this, info.status);
-                    }
-                    stopSelf();
-                    return;
-                  }
-                  // Respect the user's "not now" choice unless the update is mandatory.
-                  if (!userInitiated
-                      && !info.mandatory
-                      && info.versionCode == AuroraOtaPrefs.getPostponedVersionCode(this)) {
-                    LogUtil.i(TAG, "update postponed by user, skipping");
-                    stopSelf();
-                    return;
-                  }
-                  if (AuroraOtaPrefs.isWifiOnly(this) && !isOnUnmeteredNetwork(this)) {
-                    notifySimple(
-                        this,
-                        NOTIFICATION_ID_ERROR,
-                        getString(R.string.aurora_ota_waiting_wifi),
-                        info.versionName);
-                    stopSelf();
-                    return;
-                  }
-                  download(info, userInitiated);
-                } catch (RuntimeException e) {
-                  LogUtil.e(TAG, "update run failed: " + e);
-                  notifySimple(this, NOTIFICATION_ID_ERROR,
-                      getString(R.string.aurora_ota_failed), String.valueOf(e.getMessage()));
+                  runUpdatePass(this, userInitiated);
                 } finally {
                   stopSelfSafe();
                 }
@@ -212,76 +343,8 @@ public final class AuroraOtaJobService extends JobService {
       return START_NOT_STICKY;
     }
 
-    private void download(AuroraOtaUpdater.UpdateInfo info, boolean userInitiated) {
-      AuroraOtaPrefs.setLastStatus(this, "Downloading " + info.versionName);
-      AuroraOtaEvents.notifyStatus(this, "Downloading " + info.versionName);
-      AuroraOtaUpdater.download(
-          this,
-          info,
-          new AuroraOtaUpdater.ProgressCallback() {
-            @Override
-            public void onProgress(int percent, long bytesDownloaded, long totalBytes) {
-              if (cancelled) {
-                return;
-              }
-              String text =
-                  percent >= 0
-                      ? getString(R.string.aurora_ota_downloading_percent, percent)
-                      : getString(R.string.aurora_ota_downloading);
-              NotificationManager nm =
-                  (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-              if (nm != null) {
-                nm.notify(
-                    NOTIFICATION_ID_PROGRESS,
-                    buildNotification(
-                        AuroraOtaDownloadService.this,
-                        info.versionName,
-                        text,
-                        Math.max(0, percent),
-                        false,
-                        null));
-              }
-              AuroraOtaEvents.notifyProgress(AuroraOtaDownloadService.this, percent, info.versionName);
-            }
-
-            @Override
-            public void onComplete(File apkFile) {
-              if (cancelled) {
-                return;
-              }
-              AuroraOtaPrefs.setLastStatus(
-                  AuroraOtaDownloadService.this, "Downloaded " + info.versionName);
-              AuroraOtaEvents.notifyStatus(
-                  AuroraOtaDownloadService.this, "Downloaded " + info.versionName);
-              notifyUpdateReady(AuroraOtaDownloadService.this, info, apkFile);
-              if (AuroraOtaPrefs.isAutoInstall(AuroraOtaDownloadService.this)) {
-                String error = AuroraOtaUpdater.install(AuroraOtaDownloadService.this, apkFile);
-                if (error != null) {
-                  notifySimple(
-                      AuroraOtaDownloadService.this,
-                      NOTIFICATION_ID_ERROR,
-                      getString(R.string.aurora_ota_failed),
-                      error);
-                }
-              }
-            }
-
-            @Override
-            public void onError(String message) {
-              AuroraOtaPrefs.setLastStatus(AuroraOtaDownloadService.this, message);
-              AuroraOtaEvents.notifyStatus(AuroraOtaDownloadService.this, message);
-              notifySimple(
-                  AuroraOtaDownloadService.this,
-                  NOTIFICATION_ID_ERROR,
-                  getString(R.string.aurora_ota_failed),
-                  message);
-            }
-          });
-    }
-
     @Override
     public void onDestroy() {
-      cancelled = true;
       if (worker != null) {
         worker.interrupt();
       }
@@ -307,6 +370,18 @@ public final class AuroraOtaJobService extends JobService {
   // ---------------------------------------------------------------------------------------------
   // Notifications
   // ---------------------------------------------------------------------------------------------
+
+  /**
+   * Android 13 onwards can have notifications switched off for the whole app. Nothing this updater
+   * posts would be visible then, so the pass reports it instead of appearing to do nothing.
+   */
+  static boolean notificationsEnabled(Context context) {
+    try {
+      return NotificationManagerCompat.from(context).areNotificationsEnabled();
+    } catch (RuntimeException e) {
+      return true;
+    }
+  }
 
   static void ensureChannel(Context context) {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
@@ -351,6 +426,11 @@ public final class AuroraOtaJobService extends JobService {
 
   private static void notifySimple(Context context, int id, String title, @Nullable String text) {
     ensureChannel(context);
+    if (!notificationsEnabled(context)) {
+      LogUtil.w(TAG, "notifications are switched off for this app; cannot announce: " + title);
+      AuroraOtaPrefs.setLastStatus(context, "Notifications are switched off: " + title);
+      return;
+    }
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null) {
       return;
@@ -369,6 +449,12 @@ public final class AuroraOtaJobService extends JobService {
   /** "Update ready — tap to install" notification. */
   static void notifyUpdateReady(Context context, AuroraOtaUpdater.UpdateInfo info, File apkFile) {
     ensureChannel(context);
+    if (!notificationsEnabled(context)) {
+      LogUtil.w(TAG, "update downloaded but notifications are switched off for this app");
+      AuroraOtaPrefs.setLastStatus(
+          context, "Update " + info.versionName + " downloaded; notifications are switched off");
+      return;
+    }
     NotificationManager nm = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
     if (nm == null) {
       return;

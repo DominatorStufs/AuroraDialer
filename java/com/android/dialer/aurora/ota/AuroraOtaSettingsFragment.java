@@ -20,6 +20,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.provider.Settings;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -55,6 +56,7 @@ public class AuroraOtaSettingsFragment extends PreferenceFragmentCompat {
   private Preference checkNowPreference;
   private Preference changelogPreference;
   private SwitchPreferenceCompat enabledPreference;
+  private Preference notificationsPreference;
   private EditTextPreference manifestPreference;
   private ListPreference channelPreference;
 
@@ -151,6 +153,20 @@ public class AuroraOtaSettingsFragment extends PreferenceFragmentCompat {
           return true;
         });
     screen.addPreference(autoInstall);
+
+    // Shown only when Android is not allowed to show this app's notifications: without them an
+    // update cannot be announced, and the screen would otherwise look as if nothing ever happens.
+    notificationsPreference = new Preference(requireContext());
+    notificationsPreference.setKey("aurora_ota_notifications");
+    notificationsPreference.setPersistent(false);
+    notificationsPreference.setTitle(R.string.aurora_ota_notifications_blocked_title);
+    notificationsPreference.setSummary(R.string.aurora_ota_notifications_blocked_summary);
+    notificationsPreference.setOnPreferenceClickListener(
+        preference -> {
+          openAppNotificationSettings();
+          return true;
+        });
+    screen.addPreference(notificationsPreference);
 
     checkNowPreference = new Preference(requireContext());
     checkNowPreference.setKey("aurora_ota_check_now");
@@ -268,8 +284,25 @@ public class AuroraOtaSettingsFragment extends PreferenceFragmentCompat {
                 AuroraOtaPrefs.getManifestUrl(requireContext()))
             : getString(R.string.aurora_ota_manifest_summary));
     channelPreference.setValue(AuroraOtaPrefs.getChannel(requireContext()));
+    notificationsPreference.setVisible(!AuroraOtaJobService.notificationsEnabled(requireContext()));
     checkNowPreference.setSummary(null);
     showPendingChangelog();
+  }
+
+  /** Sends the user to the screen where this app's notifications are allowed again. */
+  private void openAppNotificationSettings() {
+    try {
+      startActivity(
+          new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+              .putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().getPackageName())
+              .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+    } catch (RuntimeException e) {
+      android.widget.Toast.makeText(
+              requireContext(),
+              R.string.aurora_ota_settings_unavailable,
+              android.widget.Toast.LENGTH_LONG)
+          .show();
+    }
   }
 
   /** Puts the changelog of the newer build on the screen, right below "Check for updates now". */

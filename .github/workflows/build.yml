@@ -1,4 +1,39 @@
-name: Build Aurora Dialer APK
+name: Build Aurora Dialer APK (manual)
+
+# ------------------------------------------------------------------------------------------------
+# This workflow NEVER runs by itself.
+#
+# Pushing code, uploading files, opening a pull request or pushing a tag does nothing.
+# A build starts only when it is started by hand: Actions tab -> "Build Aurora Dialer APK (manual)"
+# -> Run workflow, and there a version name and a version code MUST be typed in first.
+#
+# The version code may be left EMPTY: the run then works out the next free number from the newest
+# release and from the codes already handed out, so a published build is always newer than the one
+# before it - the only thing that makes a phone show the update notification. A typed code that is
+# not bigger than the newest release stops the run instead of shipping a release nobody is told
+# about (tick replace_version to rebuild an existing version on purpose).
+#
+# When it finishes it uploads, as build artifacts and as GitHub Release assets:
+#   * the APK,
+#   * the OTA update manifests (aurora-stable.json / aurora-beta.json / aurora-dev.json) that the
+#     app's Software update screen reads - written automatically, never edited by hand.
+# Nothing else is attached to a release - no source archive. (If a source ZIP is ever wanted again,
+# `git archive --format=zip -o source.zip HEAD` makes one locally: it packs the committed files only,
+# so it never contains the .git history folder. It is deliberately NOT part of this build.)
+# Running the same version name + code again REPLACES the files of that release instead of failing,
+# so a rebuild can be shipped with the same version.
+#
+# The manifests are derived from the version name + code typed in below, never edited by hand: the
+# run reads them back out of the finished APK, writes them into aurora-stable/beta/dev.json and
+# refuses to publish if the two do not match.
+#
+# The Android SDK step is deliberately self-contained (no android-actions/setup-android): the SDK on
+# the runner image is reused, and the command-line tools are downloaded only when it has none.
+#
+# Signing: nothing is signed with a key kept in the repository. Either leave it alone (Gradle's own
+# debug key is used) or add the secrets AURORA_KEYSTORE_BASE64 / AURORA_KEYSTORE_PASSWORD /
+# AURORA_KEY_ALIAS / AURORA_KEY_PASSWORD and every build is signed with that key.
+# ------------------------------------------------------------------------------------------------
 
 on:
   workflow_dispatch:
@@ -8,9 +43,14 @@ on:
         required: true
         type: string
       version_code:
-        description: 'Version code, whole number, must go up, e.g. 261014 (required)'
-        required: true
+        description: 'Version code, whole number, must go up. LEAVE IT EMPTY to continue automatically (recommended)'
+        required: false
         type: string
+      replace_version:
+        description: 'Only to rebuild a version that is already out (same code, its release files are replaced)'
+        required: false
+        default: false
+        type: boolean
       changelog:
         description: 'What changed - shown on the in-app Software update screen (optional)'
         required: false
@@ -49,7 +89,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build ${{ inputs.version_name }} (${{ inputs.version_code }})
+    name: Build ${{ inputs.version_name }}
     runs-on: ubuntu-latest
 
     steps:
@@ -58,38 +98,84 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check that the source carries the update-check fix
+        run: |
+          set -euo pipefail
+          FILE="java/com/android/dialer/aurora/ota/AuroraOtaJobService.java"
+          if grep -q "scheduleAndCheck" "$FILE" 2>/dev/null; then
+            echo "The source carries the update auto-check fix."
+          else
+            echo "::warning title=This source looks old::AuroraOtaJobService.java does not contain the update auto-check fix. An older source ZIP was probably uploaded: the APK built from it will not look for updates on its own, so an installed phone would only find the update when the user taps Check now."
+          fi
+
       - name: Validate version inputs
         id: version
         env:
           INPUT_VERSION_NAME: ${{ inputs.version_name }}
           INPUT_VERSION_CODE: ${{ inputs.version_code }}
           INPUT_BUILD_TYPE: ${{ inputs.build_type }}
+          INPUT_REPLACE: ${{ inputs.replace_version }}
         run: |
           set -euo pipefail
 
           NAME="$(printf '%s' "${INPUT_VERSION_NAME:-}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           CODE="$(printf '%s' "${INPUT_VERSION_CODE:-}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
           BUILD_TYPE="${INPUT_BUILD_TYPE:-release}"
+          REPLACE="${INPUT_REPLACE:-false}"
 
           if [ -z "$NAME" ]; then
             echo "::error::version_name is required - type the version you want to build."
             exit 1
           fi
-          if ! printf '%s' "$CODE" | grep -Eq '^[0-9]+$'; then
-            echo "::error::version_code must be a whole number without dots or letters (e.g. 261014), got '$CODE'."
-            exit 1
-          fi
 
-          # Android stores the code as a number, so "01" would come back out of the APK as "1" and
-          # every later comparison would mismatch. Normalise it here, once, for the whole run.
-          CODE_RAW="$CODE"
-          CODE="$(printf '%s' "$CODE" | awk '{ printf "%d", $1 }')"
-          if [ "$CODE_RAW" != "$CODE" ]; then
-            echo "note: version_code '$CODE_RAW' normalised to '$CODE' (an APK stores no leading zeros)."
+          # The version code the newest published release already uses, read from the OTA manifest
+          # that release carries. A phone only shows the update notification when the new code is
+          # BIGGER than the code it is running, so this number decides if anyone is ever told.
+          LATEST=0
+          MANIFEST="$(curl -fsSL "https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/aurora-stable.json" 2>/dev/null || true)"
+          if [ -n "$MANIFEST" ]; then
+            LATEST="$(printf '%s' "$MANIFEST" | python3 -c 'import json,sys;print(int(json.load(sys.stdin).get("versionCode") or 0))' 2>/dev/null || echo 0)"
           fi
-          if [ "$CODE" -lt 1 ]; then
-            echo "::error::version_code must be 1 or more, got '$CODE_RAW'."
-            exit 1
+          case "$LATEST" in ''|*[!0-9]*) LATEST=0 ;; esac
+
+          # Version-code floor: 261025 is the highest code ever handed out for this app, so an
+          # automatic code continues from there (261026, 261027, ...) and can only go up.
+          FLOOR=261025
+          NEXT="$LATEST"
+          if [ "$NEXT" -lt "$FLOOR" ]; then
+            NEXT="$FLOOR"
+          fi
+          NEXT=$((NEXT + 1))
+
+          if [ -z "$CODE" ]; then
+            # Automatic: the next free code, always bigger than the newest release.
+            CODE="$NEXT"
+            echo "version_code was left empty - using the next free code, $CODE (newest published: $LATEST)."
+          else
+            if ! printf '%s' "$CODE" | grep -Eq '^[0-9]+$'; then
+              echo "::error::version_code must be a whole number without dots or letters (e.g. 261014), got '$CODE'."
+              exit 1
+            fi
+
+            # Android stores the code as a number, so "01" would come back out of the APK as "1" and
+            # every later comparison would mismatch. Normalise it here, once, for the whole run.
+            CODE_RAW="$CODE"
+            CODE="$(printf '%s' "$CODE" | awk '{ printf "%d", $1 }')"
+            if [ "$CODE_RAW" != "$CODE" ]; then
+              echo "note: version_code '$CODE_RAW' normalised to '$CODE' (an APK stores no leading zeros)."
+            fi
+            if [ "$CODE" -lt 1 ]; then
+              echo "::error::version_code must be 1 or more, got '$CODE_RAW'."
+              exit 1
+            fi
+
+            # A code that is not bigger than the newest release is exactly the mistake that makes a
+            # release invisible: every installed phone compares the two numbers and decides it is
+            # already up to date. Stop the run instead of publishing a release nobody is told about.
+            if [ "${REPLACE:-false}" != "true" ] && [ "$CODE" -le "$LATEST" ]; then
+              echo "::error::version_code $CODE is not newer than the newest release ($LATEST), so no installed phone would be offered this update. Leave the version_code box EMPTY to get $NEXT automatically, or tick replace_version if you really mean to rebuild that same version."
+              exit 1
+            fi
           fi
           case "$BUILD_TYPE" in
             release|debug|both) ;;
@@ -262,6 +348,16 @@ jobs:
           fi
           [ -n "$CHANGELOG" ] || CHANGELOG="Aurora Dialer update"
 
+          # The form in the Actions UI is a single line, so a pasted bullet list arrives with its
+          # line breaks collapsed ("- a - b"). Put the bullets back and never double a leading dash,
+          # so the update screen and the release notes show one bullet per line.
+          if [ "$(printf '%s' "$CHANGELOG" | wc -l)" -eq 0 ]; then
+            case "$CHANGELOG" in
+              -*) CHANGELOG=$(printf '%s' "$CHANGELOG" | sed 's/ - /\n- /g') ;;
+              *) CHANGELOG="- $CHANGELOG" ;;
+            esac
+          fi
+
           # Read the version straight out of the APK that was just built and stop unless it is
           # exactly what was typed in, so the manifest can never describe a different build.
           AAPT2="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" -name aapt2 | sort | tail -1)"
@@ -390,10 +486,17 @@ jobs:
             echo "- **Min SDK**: Android 11 (API 30) · **Target SDK**: Android 16 (API 36)"
             echo "- Install over an existing Aurora Dialer build: \`adb install -r <apk>\` or just open the APK."
             echo ""
-            if [ -n "${CHANGELOG_INPUT:-}" ]; then
+            NOTES_CHANGELOG="${CHANGELOG_INPUT:-}"
+            if [ -n "$NOTES_CHANGELOG" ] && [ "$(printf '%s' "$NOTES_CHANGELOG" | wc -l)" -eq 0 ]; then
+              case "$NOTES_CHANGELOG" in
+                -*) NOTES_CHANGELOG=$(printf '%s' "$NOTES_CHANGELOG" | sed 's/ - /\n- /g') ;;
+                *) NOTES_CHANGELOG="- $NOTES_CHANGELOG" ;;
+              esac
+            fi
+            if [ -n "$NOTES_CHANGELOG" ]; then
               echo "### What changed"
               echo ""
-              printf '%s\n' "${CHANGELOG_INPUT}"
+              printf '%s\n' "$NOTES_CHANGELOG"
             fi
           } > "$NOTES"
 
