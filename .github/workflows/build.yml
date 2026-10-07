@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       version_name:
-        description: 'Version name, e.g. 26.10.14-Aurora (required)'
-        required: true
+        description: 'Version name, e.g. 26.10.26-Aurora (optional - a name is made up when it is empty)'
+        required: false
         type: string
       version_code:
-        description: 'Version code, whole number, must go up. LEAVE IT EMPTY to continue automatically (recommended)'
+        description: 'Version code. Optional - leave it empty, or type anything: every build goes out with a code newer than the last release, so phones always get the update notification'
         required: false
         type: string
       replace_version:
@@ -88,11 +88,6 @@ jobs:
           BUILD_TYPE="${INPUT_BUILD_TYPE:-release}"
           REPLACE="${INPUT_REPLACE:-false}"
 
-          if [ -z "$NAME" ]; then
-            echo "::error::version_name is required - type the version you want to build."
-            exit 1
-          fi
-
           # The version code the newest published release already uses, read from the OTA manifest
           # that release carries. A phone only shows the update notification when the new code is
           # BIGGER than the code it is running, so this number decides if anyone is ever told.
@@ -103,44 +98,65 @@ jobs:
           fi
           case "$LATEST" in ''|*[!0-9]*) LATEST=0 ;; esac
 
-          # Version-code floor: 261025 is the highest code ever handed out for this app, so an
-          # automatic code continues from there (261026, 261027, ...) and can only go up.
-          FLOOR=261025
-          NEXT="$LATEST"
-          if [ "$NEXT" -lt "$FLOOR" ]; then
-            NEXT="$FLOOR"
-          fi
-          NEXT=$((NEXT + 1))
-
-          if [ -z "$CODE" ]; then
-            # Automatic: the next free code, always bigger than the newest release.
-            CODE="$NEXT"
-            echo "version_code was left empty - using the next free code, $CODE (newest published: $LATEST)."
-          else
-            if ! printf '%s' "$CODE" | grep -Eq '^[0-9]+$'; then
-              echo "::error::version_code must be a whole number without dots or letters (e.g. 261014), got '$CODE'."
-              exit 1
+          # Every release this workflow has ever made carries a tag that ends with its version code
+          # (v<name>-<code>), and a tag outlives its release - deleting a release from the page does
+          # not remove the tag. The tags are therefore the second, lasting source of truth. The
+          # higher of the two wins: whatever happens to the manifest or to a release, no code that
+          # was already handed out is ever used again.
+          TAGS="$(curl -fsSL "https://api.github.com/repos/${GITHUB_REPOSITORY}/tags?per_page=100" 2>/dev/null || true)"
+          if [ -n "$TAGS" ]; then
+            TAG_LATEST="$(printf '%s' "$TAGS" | grep -o '"name"[[:space:]]*:[[:space:]]*"[^"]*"' | sed -n 's/.*-\([0-9][0-9]*\)"$/\1/p' | sort -n | tail -1)"
+            case "$TAG_LATEST" in ''|*[!0-9]*) TAG_LATEST=0 ;; esac
+            if [ "$TAG_LATEST" -gt "$LATEST" ]; then
+              LATEST="$TAG_LATEST"
             fi
+          fi
 
-            # Android stores the code as a number, so "01" would come back out of the APK as "1" and
-            # every later comparison would mismatch. Normalise it here, once, for the whole run.
+          # Version-code floor: 261025 is the highest code that ever reached a phone for this app
+          # (builds 261021-261025 were handed out before any release existed), so nothing this
+          # workflow publishes can go below it. The number only ever goes up.
+          FLOOR=261025
+          BASE="$LATEST"
+          if [ "$BASE" -lt "$FLOOR" ]; then
+            BASE="$FLOOR"
+          fi
+          NEXT=$((BASE + 1))
+
+          # Whatever is typed in the form, the build is published with a code NEWER than every code
+          # already out. That number is the one and only thing a phone looks at: an installed app
+          # compares its own code with the one in the update manifest and shows the notification
+          # only when the manifest carries the bigger number. A repeated or smaller number makes a
+          # release invisible - that is exactly what happened before - so instead of publishing it
+          # as it is, it is lifted to the next free number. Tick replace_version to rebuild an
+          # existing version exactly as typed, on purpose.
+          if [ -z "$CODE" ]; then
+            CODE="$NEXT"
+            echo "version_code was left empty - using the next free code, $CODE."
+          elif ! printf '%s' "$CODE" | grep -Eq '^[0-9]+$'; then
+            echo "::warning title=version_code is not a whole number::'$CODE' cannot be used, so this build uses the next free code, $NEXT."
+            CODE="$NEXT"
+          else
+            # Android stores the code as a number, so "01" would come back out of the APK as "1"
+            # and every later comparison would mismatch. Normalise it here, once, for the whole run.
             CODE_RAW="$CODE"
             CODE="$(printf '%s' "$CODE" | awk '{ printf "%d", $1 }')"
             if [ "$CODE_RAW" != "$CODE" ]; then
               echo "note: version_code '$CODE_RAW' normalised to '$CODE' (an APK stores no leading zeros)."
             fi
             if [ "$CODE" -lt 1 ]; then
-              echo "::error::version_code must be 1 or more, got '$CODE_RAW'."
-              exit 1
+              echo "::warning title=version_code is not a usable number::'$CODE_RAW' cannot be used, so this build uses the next free code, $NEXT."
+              CODE="$NEXT"
             fi
+          fi
 
-            # A code that is not bigger than the newest release is exactly the mistake that makes a
-            # release invisible: every installed phone compares the two numbers and decides it is
-            # already up to date. Stop the run instead of publishing a release nobody is told about.
-            if [ "${REPLACE:-false}" != "true" ] && [ "$CODE" -le "$LATEST" ]; then
-              echo "::error::version_code $CODE is not newer than the newest release ($LATEST), so no installed phone would be offered this update. Leave the version_code box EMPTY to get $NEXT automatically, or tick replace_version if you really mean to rebuild that same version."
-              exit 1
-            fi
+          if [ "${REPLACE:-false}" != "true" ] && [ "$CODE" -le "$BASE" ]; then
+            echo "::notice title=version_code lifted::version_code $CODE is not newer than the code already out ($BASE), so this build uses $NEXT. A phone only shows the update notification when the offered code is bigger than the one it is running."
+            CODE="$NEXT"
+          fi
+
+          if [ -z "$NAME" ]; then
+            NAME="Aurora-${CODE}"
+            echo "note: version_name was left empty - using '$NAME'."
           fi
           case "$BUILD_TYPE" in
             release|debug|both) ;;
@@ -155,7 +171,7 @@ jobs:
 
           echo "Building Aurora Dialer (com.aurora.dialer)"
           echo "  versionName : $NAME"
-          echo "  versionCode : $CODE"
+          echo "  versionCode : $CODE   (newest code already out: $BASE)"
           echo "  buildType   : $BUILD_TYPE"
 
       - name: Set up JDK 17
