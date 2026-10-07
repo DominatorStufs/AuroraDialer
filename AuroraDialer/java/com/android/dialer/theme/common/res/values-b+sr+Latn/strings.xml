@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="emergency_number">Broj hitne službe</string>
+  <string name="video_call_lte_to_wifi_handover_toast">Poziv se nastavlja pomoću Wi‑Fi-ja…</string>
+  <string name="rtt_call_not_available_toast">RTT nije dostupan za ovaj poziv</string>
+  <string name="call_subject_type_and_number">%1$s %2$s</string>
+</resources>

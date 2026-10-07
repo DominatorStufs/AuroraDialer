@@ -1,0 +1,34 @@
+<!--
+  ~ Copyright (C) 2018 The Android Open Source Project
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~      http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License
+  -->
+<resources>
+  <!-- Essential theme colors -->
+  <color name="dialer_theme_color">#FF212121</color>
+  <color name="dialer_theme_color_20pct">#332A56C6</color>
+  <color name="dialer_theme_color_dark">#FF212121</color>
+  <color name="dialer_primary_color">#FFF8F8F8</color>
+  <color name="dialer_ripple_color">#1f000000</color>
+  <color name="dialer_background_color">@android:color/white</color>
+  <color name="dialer_background_floating">#FFF8F8F8</color>
+  <color name="dialer_search_bar_color">#FFF8F8F8</color>
+  <color name="rounded_dialpad_bg_color">@android:color/white</color>
+  <color name="menubar_icon_color">#FF212121</color>
+  <color name="searchbar_icon_color">#F8F8F8</color>
+  <color name="dialer_theme_color_light">#FF212121</color>
+  <color name="theme_ved_white">#FFF8F8F8</color>
+  <color name="theme_ved_black">#FF212121</color>
+  <color name="theme_ved_pill">#212121</color>
+  <color name="theme_text">@android:color/black</color>
+</resources>

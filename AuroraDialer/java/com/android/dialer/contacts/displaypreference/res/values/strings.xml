@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  
+
+  
+  <string translatable="false" name="display_options_sort_list_by_key">android.contacts.SORT_ORDER</string>
+
+  
+  <string translatable="false" name="display_options_sort_by_given_name_value">sort_by_given_name</string>
+
+  
+  <string translatable="false" name="display_options_sort_by_family_name_value">sort_by_family_name</string>
+
+  
+  <string translatable="false" name="display_options_view_names_as_key">android.contacts.DISPLAY_ORDER</string>
+
+  
+  <string translatable="false" name="display_options_view_given_name_first_value">view_given_name_first</string>
+
+  
+  <string translatable="false" name="display_options_view_family_name_first_value">view_family_name_first</string>
+</resources>

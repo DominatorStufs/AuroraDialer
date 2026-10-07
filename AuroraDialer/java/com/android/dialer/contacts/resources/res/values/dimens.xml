@@ -1,0 +1,43 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+
+  
+  <dimen name="list_section_divider_min_height">32dip</dimen>
+
+  
+  <dimen name="contact_browser_list_item_photo_size">40dp</dimen>
+
+  
+  <dimen name="floating_action_button_height">56dp</dimen>
+  
+  <dimen name="floating_action_button_translation_z">8dp</dimen>
+  
+  <dimen name="floating_action_button_margin_bottom">16dp</dimen>
+
+  
+  <dimen name="tab_selected_underline_height">2dp</dimen>
+  
+  <dimen name="tab_text_size">14sp</dimen>
+  <dimen name="tab_elevation">0dp</dimen>
+  <dimen name="tab_unread_count_background_size">16dp</dimen>
+  <dimen name="tab_unread_count_background_radius">2dp</dimen>
+  <dimen name="tab_unread_count_margin_left">0dp</dimen>
+  <dimen name="tab_unread_count_margin_top">2dp</dimen>
+  <dimen name="tab_unread_count_text_size">12sp</dimen>
+  <dimen name="tab_unread_count_text_padding">2dp</dimen>
+
+  
+  <dimen name="call_subject_dialog_margin">20dp</dimen>
+  
+  <dimen name="call_subject_dialog_between_line_margin">8dp</dimen>
+  
+  <dimen name="call_subject_dialog_contact_photo_size">50dp</dimen>
+  
+  <dimen name="call_subject_dialog_edit_spacing">60dp</dimen>
+  
+  <dimen name="call_subject_dialog_primary_text_size">16sp</dimen>
+  
+  <dimen name="call_subject_dialog_secondary_text_size">14sp</dimen>
+  
+  <dimen name="call_subject_history_item_padding">15dp</dimen>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="lookup_settings_label">Telefono zenbakien bilaketa</string>
+    <string name="enable_forward_lookup_title">Tokien bilaketa</string>
+    <string name="enable_forward_lookup_summary">Erakutsi inguruko tokiak markatzailean bilatzean</string>
+    <string name="enable_reverse_lookup_title">Bilaketa alderantzikatua</string>
+    <string name="enable_reverse_lookup_summary">Bilatu pertsona edo lekuko informazioa zenbaki ezezagunen deientzako</string>
+    <string name="forward_lookup_provider_title">Tokien bilaketarako hornitzailea</string>
+    <string name="reverse_lookup_provider_title">Bilaketa alderantzikatuaren hornitzailea</string>
+    <string name="lookup_disclaimer">Bilaketek protokolo seguru baten bidez (https) galderak bidali ditzakete urruneko webguneetara informazio bila. Galderek beste partearen telefono zenbakia eraman dezakete</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@drawable/dialpad_key_circle" />
+    <item>
+        <ripple android:color="?android:attr/colorControlHighlight">
+            <item android:id="@android:id/mask">
+                <shape android:shape="oval">
+                    <solid android:color="@color/dialpad_circle_color"/>
+                    <size android:width="48dp" android:height="48dp"/>
+                </shape>
+            </item>
+        </ripple>
+    </item>
+</layer-list>

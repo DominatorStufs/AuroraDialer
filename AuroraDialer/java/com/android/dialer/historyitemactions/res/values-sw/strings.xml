@@ -1,0 +1,10 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="add_to_contacts">Ongeza anwani</string>
+  <string name="send_a_message">Ujumbe</string>
+  <string name="not_spam">Si taka</string>
+  <string name="block_number">Zuia</string>
+  <string name="unblock_number">Acha kuzuia</string>
+  <string name="block_and_optionally_report_spam">Zuia/Ripoti taka</string>
+  <string name="copy_number">Nakili nambari</string>
+</resources>

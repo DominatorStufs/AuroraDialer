@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="@color/theme_ved_pill" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/quantum_ic_search_vd_theme_24"
+          android:gravity="center" />
+</layer-list>

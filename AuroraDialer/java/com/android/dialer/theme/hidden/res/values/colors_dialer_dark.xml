@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  
+  <color name="dialer_dark_theme_color">#FFF8F8F8</color>
+  <color name="dialer_dark_theme_color_20pct">#335195EA</color>
+  <color name="dialer_dark_theme_color_dark">#FFF8F8F8</color>
+  </resources>
