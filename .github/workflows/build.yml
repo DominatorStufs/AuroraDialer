@@ -1,33 +1,4 @@
-name: Build Aurora Dialer APK (manual)
-
-# ------------------------------------------------------------------------------------------------
-# This workflow NEVER runs by itself.
-#
-# Pushing code, uploading files, opening a pull request or pushing a tag does nothing.
-# A build starts only when it is started by hand: Actions tab -> "Build Aurora Dialer APK (manual)"
-# -> Run workflow, and there a version name and a version code MUST be typed in first.
-#
-# When it finishes it uploads, as build artifacts and as GitHub Release assets:
-#   * the APK,
-#   * the OTA update manifests (aurora-stable.json / aurora-beta.json / aurora-dev.json) that the
-#     app's Software update screen reads - written automatically, never edited by hand.
-# Nothing else is attached to a release - no source archive. (If a source ZIP is ever wanted again,
-# `git archive --format=zip -o source.zip HEAD` makes one locally: it packs the committed files only,
-# so it never contains the .git history folder. It is deliberately NOT part of this build.)
-# Running the same version name + code again REPLACES the files of that release instead of failing,
-# so a rebuild can be shipped with the same version.
-#
-# The manifests are derived from the version name + code typed in below, never edited by hand: the
-# run reads them back out of the finished APK, writes them into aurora-stable/beta/dev.json and
-# refuses to publish if the two do not match.
-#
-# The Android SDK step is deliberately self-contained (no android-actions/setup-android): the SDK on
-# the runner image is reused, and the command-line tools are downloaded only when it has none.
-#
-# Signing: nothing is signed with a key kept in the repository. Either leave it alone (Gradle's own
-# debug key is used) or add the secrets AURORA_KEYSTORE_BASE64 / AURORA_KEYSTORE_PASSWORD /
-# AURORA_KEY_ALIAS / AURORA_KEY_PASSWORD and every build is signed with that key.
-# ------------------------------------------------------------------------------------------------
+name: Build Aurora Dialer APK
 
 on:
   workflow_dispatch:
