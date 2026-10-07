@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">Број за итни случаи</string>
-  <string name="video_call_lte_to_wifi_handover_toast">Повикот ќе продолжи преку Wi‑Fi…</string>
-  <string name="rtt_call_not_available_toast">RTT не е достапна за повиков</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

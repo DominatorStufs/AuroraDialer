@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">Số khẩn cấp</string>
-  <string name="video_call_lte_to_wifi_handover_toast">Đang tiếp tục cuộc gọi bằng cách sử dụng Wi‑Fi…</string>
-  <string name="rtt_call_not_available_toast">Không thể sử dụng tin nhắn theo thời gian thực (RTT) cho cuộc gọi này</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">გადაუდებელი დახმარების ნომერი</string>
-  <string name="video_call_lte_to_wifi_handover_toast">ზარი გრძელდება Wi‑Fi-ს გამოყენებით…</string>
-  <string name="rtt_call_not_available_toast">RTT ამ ზარისთვის მიუწვდომელია</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">आपातकालीन नंबर</string>
-  <string name="video_call_lte_to_wifi_handover_toast">कॉल वाई‑फ़ाई पर जारी रखा जा रहा है…</string>
-  <string name="rtt_call_not_available_toast">इस कॉल के लिए आरटीटी उपलब्ध नहीं है</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

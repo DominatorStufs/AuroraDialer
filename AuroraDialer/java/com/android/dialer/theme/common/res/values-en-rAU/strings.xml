@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">Emergency number</string>
-  <string name="video_call_lte_to_wifi_handover_toast">Continuing call using Wi‑Fi…</string>
-  <string name="rtt_call_not_available_toast">RTT not available for this call</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

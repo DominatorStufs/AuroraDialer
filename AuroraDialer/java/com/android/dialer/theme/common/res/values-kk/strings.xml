@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">Төтенше қызмет нөмір</string>
-  <string name="video_call_lte_to_wifi_handover_toast">Қоңырау Wi‑Fi арқылы жалғасуда…</string>
-  <string name="rtt_call_not_available_toast">Бұл қоңырауда RTT мүмкіндігі жоқ</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-  <string name="audioroute_bluetooth">Bluetooth</string>
-  <string name="audioroute_speaker">Altifalante</string>
-  <string name="audioroute_phone">Telemóvel</string>
-  <string name="audioroute_headset">Auscultadores com fios</string>
-</resources>
