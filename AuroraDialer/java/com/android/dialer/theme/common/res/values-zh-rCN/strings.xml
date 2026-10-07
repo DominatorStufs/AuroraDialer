@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">紧急呼救号码</string>
-  <string name="video_call_lte_to_wifi_handover_toast">正在使用 WLAN 继续通话…</string>
-  <string name="rtt_call_not_available_toast">此通话不支持实时信息 (RTT) 功能</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>

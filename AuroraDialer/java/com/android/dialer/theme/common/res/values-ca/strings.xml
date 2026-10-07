@@ -1,7 +1,0 @@
-<?xml version='1.0' encoding='utf-8'?>
-<resources>
-  <string name="emergency_number">Número d\'emergència</string>
-  <string name="video_call_lte_to_wifi_handover_toast">S\'està continuant la trucada mitjançant la Wi‑Fi…</string>
-  <string name="rtt_call_not_available_toast">La funció RTT no està disponible en aquesta trucada</string>
-  <string name="call_subject_type_and_number">%1$s %2$s</string>
-</resources>
