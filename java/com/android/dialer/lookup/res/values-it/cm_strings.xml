@@ -1,0 +1,11 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="lookup_settings_label">Ricerca numeri telefonici</string>
+    <string name="enable_forward_lookup_title">Ricerca diretta</string>
+    <string name="enable_forward_lookup_summary">Mostra luoghi nelle vicinanze durante la ricerca nel tastierino</string>
+    <string name="enable_reverse_lookup_title">Ricerca inversa</string>
+    <string name="enable_reverse_lookup_summary">Cerca informazioni sulla persona o luogo per i numeri sconosciuti delle chiamate in ingresso</string>
+    <string name="forward_lookup_provider_title">Provider di ricerca diretta</string>
+    <string name="reverse_lookup_provider_title">Provider di ricerca inversa</string>
+    <string name="lookup_disclaimer">Le ricerche potrebbero inviare query tramite un protocollo sicuro (https) a siti web in remoto per raccogliere le informazioni necessarie. La query può includere il numero di telefono del corrispondente o il testo della ricerca</string>
+</resources>

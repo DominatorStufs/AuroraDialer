@@ -1,0 +1,10 @@
+.idea/
+*.iml
+.gradle/
+build/
+dist/
+local.properties
+gemini.md
+
+# The development signing key under keystore/ IS committed on purpose (see keystore/README.md):
+# every build has to be signed with the same key so an installed copy can be replaced.

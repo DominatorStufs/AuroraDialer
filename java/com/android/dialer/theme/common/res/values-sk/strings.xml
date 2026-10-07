@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="emergency_number">Číslo tiesňovej linky</string>
+  <string name="video_call_lte_to_wifi_handover_toast">Pokračuje sa v hovore cez Wi‑Fi…</string>
+  <string name="rtt_call_not_available_toast">Pre tento hovor nie je okamžitý text k dispozícii</string>
+  <string name="call_subject_type_and_number">%1$s %2$s</string>
+</resources>

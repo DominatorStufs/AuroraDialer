@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="emergency_number">ತುರ್ತು ಸಂಖ್ಯೆ</string>
+  <string name="video_call_lte_to_wifi_handover_toast">ವೈ-ಫೈ ಅನ್ನು ಬಳಸಿಕೊಂಡು ಕರೆ ಮಾಡುವುದನ್ನು ಮುಂದುವರಿಸಲಾಗುತ್ತಿದೆ…</string>
+  <string name="rtt_call_not_available_toast">ಈ ಕರೆಗಾಗಿ RTT ಲಭ್ಯವಿಲ್ಲ</string>
+  <string name="call_subject_type_and_number">%1$s %2$s</string>
+</resources>

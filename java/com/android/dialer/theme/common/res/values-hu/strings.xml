@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="emergency_number">Segélyhívó szám</string>
+  <string name="video_call_lte_to_wifi_handover_toast">Hívás folytatása Wi‑Fi-kapcsolaton keresztül…</string>
+  <string name="rtt_call_not_available_toast">Az RTT funkció nem áll rendelkezésre ebben a hívásban.</string>
+  <string name="call_subject_type_and_number">%1$s %2$s</string>
+</resources>

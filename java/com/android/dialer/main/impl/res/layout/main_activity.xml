@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+-->
+<RelativeLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/root_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <eightbitlab.com.blurview.BlurTarget
+        android:id="@+id/main_content_blur_target"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <androidx.coordinatorlayout.widget.CoordinatorLayout
+            android:id="@+id/coordinator_layout"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <FrameLayout
+                android:id="@+id/fragment_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+
+            <FrameLayout
+                android:id="@+id/search_fragment_container"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"/>
+
+            <include android:id="@+id/promotion_bottom_sheet"
+                     layout="@layout/promotion_bottom_sheet"/>
+
+        </androidx.coordinatorlayout.widget.CoordinatorLayout>
+    </eightbitlab.com.blurview.BlurTarget>
+
+    <FrameLayout
+        android:id="@+id/top_view"
+        android:layout_width="match_parent"
+        android:layout_height="144dp"
+        android:visibility="gone">
+
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="64dp"
+            android:layout_marginEnd="64dp"
+            android:layout_marginBottom="24dp"
+            android:layout_gravity="bottom"
+            app:cardCornerRadius="24dp"
+            app:cardElevation="0dp">
+
+            <com.google.android.material.tabs.TabLayout
+                android:id="@+id/tabs"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:background="@android:color/transparent"
+                app:tabIndicator="@drawable/tab_indicator"
+                app:tabIndicatorColor="@color/dialer_pill_color"
+                app:tabIndicatorGravity="stretch"
+                app:tabSelectedTextColor="?android:attr/textColorPrimaryInverse"
+                app:tabRippleColor="@android:color/transparent"
+                android:visibility="gone"
+                app:tabTextAppearance="@style/MyCustomTabText"
+                app:tabTextColor="?android:attr/textColorSecondary"/>
+
+            </androidx.cardview.widget.CardView>
+        </FrameLayout>
+
+    <include
+        android:id="@+id/toolbar"
+        android:layout_alignParentTop="true"
+        layout="@layout/toolbar_layout"/>
+
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/bottom_nav_blur_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="84dp"
+        android:layout_marginBottom="24dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:elevation="8dp"
+        app:blurOverlayColor="#4DFFFFFF"> <!-- Tint color for the glass effect -->
+
+        <include layout="@layout/bottom_nav_bar_layout"/>
+
+    </eightbitlab.com.blurview.BlurView>
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/search_background_main"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp"
+        android:elevation="4dp"
+        android:translationX="12dp"
+        android:visibility="gone"
+        android:background="@drawable/icon_background_circle"
+        app:blurOverlayColor="#4DFFFFFF">
+
+        <ImageButton
+            android:id="@+id/search_magnifying_glass_main"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:scaleType="center"
+            android:src="@drawable/quantum_ic_search_vd_theme_24"
+            android:tint="@color/dialer_fab_icon_color"
+            app:tint="@color/dialer_fab_icon_color"
+            android:background="?attr/selectableItemBackgroundBorderless"/>
+
+</eightbitlab.com.blurview.BlurView>
+    <!-- Holds Dialpad fragment -->
+    <FrameLayout
+        android:id="@+id/dialpad_fragment_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:elevation="0dp"/>
+
+    <FrameLayout
+        android:id="@+id/activity_overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+        <ImageView
+            android:id="@+id/contact_tile_drag_shadow_overlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:importantForAccessibility="no"
+            android:visibility="gone"/>
+        </FrameLayout>
+
+</RelativeLayout>

@@ -1,0 +1,415 @@
+plugins {
+    id 'com.android.application' version '8.7.3'
+    id 'com.google.protobuf' version '0.9.4'
+}
+
+if (project.hasProperty("customBuildDir")) {
+    layout.buildDirectory.set(file(project.property("customBuildDir").toString()))
+}
+
+// The proto files are laid out AOSP-style (java/**/*.proto) and import each other with repository
+// root relative names ("java/com/android/dialer/..."). protoc therefore has to search the repository
+// root, but handing the repository root to Gradle as a source directory makes the whole checkout -
+// build directory included - an input of every generate*Proto task, which Gradle 8.11+ rejects with
+// "Task ':generateReleaseProto' uses this output of task ':compileReleaseAidl' without declaring an
+// explicit or implicit dependency". The files are instead mirrored into the build directory (see the
+// mirrorProtoSources task further down) and the proto source set reads that mirror, so protoc still
+// sees exactly the same "java/com/..." layout while Gradle only ever tracks a directory no other task
+// writes to.
+def protoMirrorRoot = new File(layout.buildDirectory.get().asFile, "aurora-proto-root")
+
+def resolveVersionName() {
+    def prop = project.findProperty("versionName") ?: System.getenv("VERSION_NAME")
+    if (prop != null && !prop.toString().trim().isEmpty()) {
+        return prop.toString().trim()
+    }
+    return "26.8.25-Aurora"
+}
+
+def resolveVersionCode(String verName) {
+    def prop = project.findProperty("versionCode") ?: System.getenv("VERSION_CODE")
+    if (prop != null && !prop.toString().trim().isEmpty()) {
+        def raw = prop.toString().trim()
+        if (raw.isInteger()) {
+            return Math.max(1, raw.toInteger())
+        }
+        def digitsOnly = raw.replaceAll("[^0-9]", "")
+        if (!digitsOnly.isEmpty()) {
+            if (digitsOnly.length() > 9) {
+                digitsOnly = digitsOnly.substring(0, 9)
+            }
+            return Math.max(1, digitsOnly.toInteger())
+        }
+    }
+    def digitsFromName = verName.replaceAll("[^0-9]", "")
+    if (!digitsFromName.isEmpty()) {
+        if (digitsFromName.length() > 9) {
+            digitsFromName = digitsFromName.substring(0, 9)
+        }
+        return Math.max(1, digitsFromName.toInteger())
+    }
+    return 260825
+}
+
+def appVersionName = resolveVersionName()
+def appVersionCode = resolveVersionCode(appVersionName)
+
+def extraPackagesList = [
+    "com.android.dialer",
+    "com.android.contacts.common",
+    "com.android.dialer.app",
+    "com.android.dialer.assisteddialing",
+    "com.android.dialer.assisteddialing.ui",
+    "com.android.dialer.blocking",
+    "com.android.dialer.blockreportspam",
+    "com.android.dialer.calldetails",
+    "com.android.dialer.calllog.database",
+    "com.android.dialer.calllog.ui",
+    "com.android.dialer.calllog.ui.menu",
+    "com.android.dialer.calllogutils",
+    "com.android.dialer.clipboard",
+    "com.android.dialer.common",
+    "com.android.dialer.contactphoto",
+    "com.android.dialer.contacts.displaypreference",
+    "com.android.dialer.contacts.resources",
+    "com.android.dialer.contactsfragment",
+    "com.android.dialer.databasepopulator",
+    "com.android.dialer.dialpadview",
+    "com.android.dialer.dialpadview.theme",
+    "com.android.dialer.glidephotomanager.impl",
+    "com.android.dialer.historyitemactions",
+    "com.android.dialer.interactions",
+    "com.android.dialer.lettertile",
+    "com.android.dialer.location",
+    "com.android.dialer.main.impl",
+    "com.android.dialer.main.impl.bottomnav",
+    "com.android.dialer.main.impl.toolbar",
+    "com.android.dialer.notification",
+    "com.android.dialer.oem",
+    "com.android.dialer.phonelookup.database",
+    "com.android.dialer.phonenumberutil",
+    "com.android.dialer.postcall",
+    "com.android.dialer.precall.externalreceiver",
+    "com.android.dialer.precall.impl",
+    "com.android.dialer.preferredsim.impl",
+    "com.android.dialer.preferredsim.suggestion",
+    "com.android.dialer.promotion.impl",
+    "com.android.dialer.rtt",
+    "com.android.dialer.searchfragment.common",
+    "com.android.dialer.searchfragment.cp2",
+    "com.android.dialer.searchfragment.directories",
+    "com.android.dialer.searchfragment.list",
+    "com.android.dialer.searchfragment.nearbyplaces",
+    "com.android.dialer.shortcuts",
+    "com.android.dialer.simulator.impl",
+    "com.android.dialer.simulator.service",
+    "com.android.dialer.spannable",
+    "com.android.dialer.speeddial",
+    "com.android.dialer.theme",
+    "com.android.dialer.theme.base",
+    "com.android.dialer.theme.base.impl",
+    "com.android.dialer.theme.common",
+    "com.android.dialer.theme.hidden",
+    "com.android.dialer.util",
+    "com.android.dialer.voicemail.listui",
+    "com.android.dialer.voicemail.listui.error",
+    "com.android.dialer.voicemail.settings",
+    "com.android.dialer.voicemailstatus",
+    "com.android.dialer.widget",
+    "com.android.incallui",
+    "com.android.incallui.answer.impl",
+    "com.android.incallui.answer.impl.affordance",
+    "com.android.incallui.answer.impl.answermethod",
+    "com.android.incallui.answer.impl.hint",
+    "com.android.incallui.audioroute",
+    "com.android.incallui.autoresizetext",
+    "com.android.incallui.callpending",
+    "com.android.incallui.commontheme",
+    "com.android.incallui.contactgrid",
+    "com.android.incallui.disconnectdialog",
+    "com.android.incallui.hold",
+    "com.android.incallui.incall.impl",
+    "com.android.incallui.rtt.impl",
+    "com.android.incallui.rtt.protocol",
+    "com.android.incallui.sessiondata",
+    "com.android.incallui.spam",
+    "com.android.incallui.telecomeventui",
+    "com.android.incallui.video.impl",
+    "com.android.incallui.video.protocol",
+    "com.android.voicemail",
+    "com.android.voicemail.impl",
+    "com.android.voicemail.impl.configui"
+]
+
+android {
+    namespace 'com.aurora.dialer'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.aurora.dialer"
+        minSdk 30
+        targetSdk 36
+        versionCode appVersionCode
+        versionName appVersionName
+    }
+
+    buildFeatures {
+        aidl true
+        buildConfig true
+    }
+
+    signingConfigs {
+        debug {
+            // Uses standard Android debug keystore or auto-generated debug key
+        }
+        release {
+            if (System.getenv("KEYSTORE_PATH")) {
+                storeFile file(System.getenv("KEYSTORE_PATH"))
+                storePassword System.getenv("KEYSTORE_PASSWORD")
+                keyAlias System.getenv("KEY_ALIAS")
+                keyPassword System.getenv("KEY_PASSWORD")
+            } else if (file("keystore/aurora-release.jks").exists()) {
+                // The key that travels with the repository. Signing every build with it is what lets
+                // an installed copy be replaced — by `adb install -r`, by the app's OTA updater or by
+                // simply opening the new APK — no matter which machine or CI runner built it.
+                // See keystore/README.md; KEYSTORE_PATH (with KEYSTORE_PASSWORD / KEY_ALIAS /
+                // KEY_PASSWORD) still takes precedence for a private key.
+                storeFile file("keystore/aurora-release.jks")
+                storePassword "android"
+                keyAlias "androiddebugkey"
+                keyPassword "android"
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // Matches Android.bp optimize: { enabled: false } while keeping APK ~18 MB (< 25 MB)
+            minifyEnabled false
+            shrinkResources false
+            signingConfig System.getenv("KEYSTORE_PATH")
+                    || file("keystore/aurora-release.jks").exists()
+                    ? signingConfigs.release : signingConfigs.debug
+            proguardFiles(
+                getDefaultProguardFile('proguard-android-optimize.txt'),
+                'java/com/android/dialer/common/proguard.flags',
+                'java/com/android/dialer/proguard/proguard.flags',
+                'java/com/android/dialer/proguard/proguard_base.flags',
+                'java/com/android/dialer/proguard/proguard_release.flags',
+                'java/com/android/incallui/answer/impl/proguard.flags',
+                'java/com/android/voicemail/impl/proguard.flags',
+                'proguard.flags'
+            )
+        }
+        debug {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+
+    androidResources {
+        additionalParameters '--auto-add-overlay', '--extra-packages', extraPackagesList.join(':')
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java {
+                srcDirs = ['java']
+                exclude 'com/android/dialer/rootcomponentgenerator/**'
+            }
+            aidl {
+                srcDirs = ['java']
+                include '**/I*.aidl', '**/CallRecording.aidl'
+            }
+            proto {
+                // Reads the mirror produced by mirrorProtoSources, not the repository root itself -
+                // see the comment on protoMirrorRoot above.
+                srcDirs = [protoMirrorRoot]
+                include 'java/**/*.proto'
+            }
+            res.srcDirs = [
+                'assets/quantum/res',
+                'java/com/android/contacts/common/res',
+                'java/com/android/dialer/app/res',
+                'java/com/android/dialer/assisteddialing/res',
+                'java/com/android/dialer/assisteddialing/ui/res',
+                'java/com/android/dialer/blocking/res',
+                'java/com/android/dialer/blockreportspam/res',
+                'java/com/android/dialer/calldetails/res',
+                'java/com/android/dialer/calllog/ui/menu/res',
+                'java/com/android/dialer/calllogutils/res',
+                'java/com/android/dialer/callrecord/res',
+                'java/com/android/dialer/callstats/res',
+                'java/com/android/dialer/clipboard/res',
+                'java/com/android/dialer/common/res',
+                'java/com/android/dialer/contactphoto/res',
+                'java/com/android/dialer/contacts/displaypreference/res',
+                'java/com/android/dialer/contacts/resources/res',
+                'java/com/android/dialer/contactsfragment/res',
+                'java/com/android/dialer/dialpadview/res',
+                'java/com/android/dialer/dialpadview/theme/res',
+                'java/com/android/dialer/glidephotomanager/impl/res',
+                'java/com/android/dialer/helplines/res',
+                'java/com/android/dialer/historyitemactions/res',
+                'java/com/android/dialer/interactions/res',
+                'java/com/android/dialer/lettertile/res',
+                'java/com/android/dialer/lookup/res',
+                'java/com/android/dialer/main/impl/bottomnav/res',
+                'java/com/android/dialer/main/impl/res',
+                'java/com/android/dialer/main/impl/toolbar/res',
+                'java/com/android/dialer/notification/res',
+                'java/com/android/dialer/oem/res',
+                'java/com/android/dialer/phonenumberutil/res',
+                'java/com/android/dialer/postcall/res',
+                'java/com/android/dialer/precall/impl/res',
+                'java/com/android/dialer/preferredsim/impl/res',
+                'java/com/android/dialer/preferredsim/suggestion/res',
+                'java/com/android/dialer/promotion/impl/res',
+                'java/com/android/dialer/rtt/res',
+                'java/com/android/dialer/searchfragment/common/res',
+                'java/com/android/dialer/searchfragment/cp2/res',
+                'java/com/android/dialer/searchfragment/directories/res',
+                'java/com/android/dialer/searchfragment/list/res',
+                'java/com/android/dialer/searchfragment/nearbyplaces/res',
+                'java/com/android/dialer/searchfragment/remote/res',
+                'java/com/android/dialer/shortcuts/res',
+                'java/com/android/dialer/spannable/res',
+                'java/com/android/dialer/speeddial/res',
+                'java/com/android/dialer/theme/base/res',
+                'java/com/android/dialer/theme/common/res',
+                'java/com/android/dialer/theme/hidden/res',
+                'java/com/android/dialer/theme/res',
+                'java/com/android/dialer/util/res',
+                'java/com/android/dialer/voicemail/listui/error/res',
+                'java/com/android/dialer/voicemail/listui/res',
+                'java/com/android/dialer/voicemail/settings/res',
+                'java/com/android/dialer/widget/res',
+                'java/com/android/incallui/answer/impl/affordance/res',
+                'java/com/android/incallui/answer/impl/answermethod/res',
+                'java/com/android/incallui/answer/impl/res',
+                'java/com/android/incallui/audioroute/res',
+                'java/com/android/incallui/autoresizetext/res',
+                'java/com/android/incallui/callpending/res',
+                'java/com/android/incallui/commontheme/res',
+                'java/com/android/incallui/contactgrid/res',
+                'java/com/android/incallui/disconnectdialog/res',
+                'java/com/android/incallui/hold/res',
+                'java/com/android/incallui/incall/impl/res',
+                'java/com/android/incallui/res',
+                'java/com/android/incallui/rtt/impl/res',
+                'java/com/android/incallui/sessiondata/res',
+                'java/com/android/incallui/spam/res',
+                'java/com/android/incallui/telecomeventui/res',
+                'java/com/android/incallui/theme/res',
+                'java/com/android/incallui/video/impl/res',
+                'java/com/android/incallui/video/protocol/res',
+                'java/com/android/voicemail/impl/configui/res',
+                'java/com/android/voicemail/impl/res'
+            ]
+        }
+    }
+
+    packaging {
+        dex {
+            useLegacyPackaging = true
+        }
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        resources {
+            excludes += [
+                'META-INF/DEPENDENCIES',
+                'META-INF/LICENSE',
+                'META-INF/LICENSE.txt',
+                'META-INF/license.txt',
+                'META-INF/NOTICE',
+                'META-INF/NOTICE.txt',
+                'META-INF/notice.txt',
+                'META-INF/ASL2.0',
+                'META-INF/*.kotlin_module'
+            ]
+        }
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.25.3'
+    }
+    generateProtoTasks {
+        all().each { task ->
+            task.builtins {
+                java {
+                    option 'lite'
+                }
+            }
+        }
+    }
+}
+
+// Copies java/**/*.proto into the build directory, keeping the java/ prefix, so that the proto source
+// set handed to protoc lives in a directory of its own. The copy is incremental (Gradle's Sync task)
+// and the dependency declared below is real: the mirrored files are the input of the proto tasks.
+def mirrorProtoSources = tasks.register("mirrorProtoSources", Sync) {
+    from(layout.projectDirectory.dir("java")) {
+        include "**/*.proto"
+    }
+    into(new File(protoMirrorRoot, "java"))
+}
+
+tasks.withType(com.google.protobuf.gradle.GenerateProtoTask).configureEach { protoTask ->
+    protoTask.dependsOn(mirrorProtoSources)
+}
+
+dependencies {
+    implementation files('prebuilts/BlurView/BlurView-version-3.1.0.aar')
+    implementation files('prebuilts/apache-mime4j-core-0.8.9.jar')
+    implementation files('prebuilts/apache-mime4j-dom-0.8.9.jar')
+
+    implementation 'androidx.annotation:annotation:1.8.2'
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.cardview:cardview:1.0.0'
+    implementation 'androidx.collection:collection:1.4.4'
+    implementation 'androidx.coordinatorlayout:coordinatorlayout:1.2.0'
+    implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
+    implementation 'androidx.exifinterface:exifinterface:1.3.7'
+    implementation 'androidx.fragment:fragment:1.8.4'
+    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
+    implementation 'androidx.preference:preference:1.2.1'
+    implementation 'androidx.recyclerview:recyclerview:1.3.2'
+    implementation 'androidx.legacy:legacy-support-v4:1.0.0'
+    implementation 'androidx.legacy:legacy-support-v13:1.0.0'
+
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'org.apache.commons:commons-compress:1.26.1'
+    implementation 'com.google.protobuf:protobuf-javalite:3.25.3'
+    implementation 'com.google.guava:guava:33.1.0-android'
+    implementation 'com.google.code.findbugs:jsr305:3.0.2'
+    implementation 'javax.inject:javax.inject:1'
+    implementation 'com.google.errorprone:error_prone_annotations:2.26.1'
+    implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.48'
+    implementation 'com.googlecode.libphonenumber:geocoder:2.228'
+    implementation 'com.googlecode.libphonenumber:prefixmapper:2.228'
+    implementation 'com.googlecode.libphonenumber:carrier:1.218'
+    implementation 'com.android.volley:volley:1.2.1'
+
+    implementation 'com.google.dagger:dagger:2.51.1'
+    annotationProcessor 'com.google.dagger:dagger-compiler:2.51.1'
+
+    compileOnly 'com.google.auto.value:auto-value-annotations:1.10.4'
+    annotationProcessor 'com.google.auto.value:auto-value:1.10.4'
+
+    implementation 'com.github.bumptech.glide:glide:4.16.0'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
+}

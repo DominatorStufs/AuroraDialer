@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="lookup_settings_label">Пошук нумара тэлефона</string>
+    <string name="enable_forward_lookup_title">Прамы пошук</string>
+    <string name="enable_forward_lookup_summary">Паказваць месцы побач пры пошуку ў нумаранабіральніку</string>
+    <string name="enable_reverse_lookup_title">Зваротны пошук</string>
+    <string name="forward_lookup_provider_title">Пастаўшчык прамога пошуку</string>
+    <string name="reverse_lookup_provider_title">Пастаўшчык зваротнага пошуку</string>
+</resources>
